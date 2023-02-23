@@ -2,6 +2,8 @@
 
 An implementation of Fast and Deep Deformation Approximation (Bailey 2018) for Autodesk Maya. This project has been developped as the end project for the Deep Learning course at Université Gustave Eiffel (France).
 
+https://user-images.githubusercontent.com/43669549/220860659-d9e0d540-26ef-41ea-8dfd-ba3868810fb2.mov
+
 ## Dependencies 
 
 This project has been written in python 3.9 and rely on the following libraries :
