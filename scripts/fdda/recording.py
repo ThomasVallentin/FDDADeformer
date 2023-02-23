@@ -12,9 +12,15 @@ from maya import OpenMaya as om
 
 import numpy as np
 
-import json
+from enum import Enum
 import os
 
+
+class RootJointPolicy(Enum):
+    SKIP = 0
+    KEEP = 1
+    MERGE = 2
+    
 
 # TODO: Transform each sample into a main_joint local position
 
@@ -68,7 +74,7 @@ class Recorder(object):
         self.datas = []
         self.sample_count = 0
 
-    def initialize(self):
+    def initialize(self, root_joint_policy=RootJointPolicy.MERGE):
         skinclusters = cmds.ls(cmds.listHistory(self.mesh), type="skinCluster")
         if not skinclusters:
             raise RuntimeError(f"Could not find any skin cluster on {self.mesh}")
@@ -79,9 +85,13 @@ class Recorder(object):
         # Create the subsets using the hard skinning bindings
         self.datas = [SubsetRecord(subset) for subset in 
                       Subset.from_hard_skinning(self.mesh, skinclusters[0])]
-        # We don't want to include the root joint so we assign its vertices to the next one
-        self.datas[1].vertices = self.datas[0].vertices.append(self.datas[1].vertices)
-        self.datas.pop(0)
+        
+        if root_joint_policy == RootJointPolicy.SKIP:
+            self.datas = self.datas[1:]
+        elif root_joint_policy == RootJointPolicy.MERGE:
+            # We don't want to include the root joint so we assign its vertices to the next one
+            self.datas[1].vertices = self.datas[0].vertices.append(self.datas[1].vertices)
+            self.datas.pop(0)
         
         self.linear_mesh = "TRAINING_LINEAR_MESH"
         if not cmds.objExists(self.linear_mesh):
