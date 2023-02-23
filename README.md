@@ -4,6 +4,8 @@ An implementation of Fast and Deep Deformation Approximation (Bailey 2018) for A
 
 https://user-images.githubusercontent.com/43669549/220860659-d9e0d540-26ef-41ea-8dfd-ba3868810fb2.mov
 
+**Legend:** *Green=equal, Blue=+-1e-4 cm, Red=+-0.5 cm*
+
 ## Dependencies 
 
 This project has been written in python 3.9 and rely on the following libraries :
