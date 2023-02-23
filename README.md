@@ -51,7 +51,6 @@ recorder.save("/path/to/your/dataset/directory", name="nameOfTheNetwork")
 
 The project contains a second plugin "distanceToColor" that takes a mesh and a refMesh as input and sets the vertexColors of the outputMesh based on the distance between the two meshes. This can be useful to detect differences between the approximation and the ground truth deformations.
 
-
 ## Roadmap
 
 This project is still work in progress, here are the implemented features yet and the ones that still need to be implemented :
