@@ -50,3 +50,17 @@ recorder.save("/path/to/your/dataset/directory", name="nameOfTheNetwork")
 ### Extra content
 
 The project contains a second plugin "distanceToColor" that takes a mesh and a refMesh as input and sets the vertexColors of the outputMesh based on the distance between the two meshes. This can be useful to detect differences between the approximation and the ground truth deformations.
+
+
+## Roadmap
+
+This project is still work in progress, here are the implemented features yet and the ones that still need to be implemented :
+
+- [x] Segment the mesh into subsets
+- [x] Record gaussian sampled poses
+- [x] Train the models
+- [x] Load the models in the deformer and use them to apply the deformation
+- [ ] Data simplification : Localize the deformation to the main joints of each subset
+- [x] Input reduction : Each model only receive the relevant samples based on the joints that have some influence on the model's subset
+- [ ] Output reduction : Use PCA to compute correlations between vertices and reduce the output count
+- [ ] Model Count Reduction : Remove small subsets using a threshold
