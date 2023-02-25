@@ -3,7 +3,6 @@ from fdda.common import get_all_points
 import maya.OpenMayaMPx as ompx
 import maya.OpenMaya as om
 
-import scipy
 import numpy as np
 
 class DistanceToColor(ompx.MPxDeformerNode):
