@@ -112,31 +112,38 @@ def get_all_points(get_points_fn, flatten=False, **kwargs):
                         dtype=np.dtype((np.float32, 3)))
 
 
-def get_skin_weights(mesh_dagpath, skincluster_obj, fullPath=False):
-    fn_skincluster = omanim.MFnSkinCluster(skincluster_obj)
+def list_skin_influences(skincluster, fullPath=False):
+    if isinstance(skincluster, str):
+        skincluster = get_node_obj(skincluster)
+        
+    fn_skincluster = omanim.MFnSkinCluster(skincluster)
 
     # Get a list of the DagPaths of the joints affecting the mesh
     influences = om.MDagPathArray()
     fn_skincluster.influenceObjects(influences)
     get_name_func = om.MDagPath.fullPathName if fullPath else om.MDagPath.partialPathName
-    influences = [get_name_func(influences[i]) for i in range(influences.length())]
+    return [get_name_func(influences[i]) for i in range(influences.length())]
 
+
+def get_skin_weights(mesh_dagpath, skincluster, fullPath=False):
+    if isinstance(skincluster, str):
+        skincluster = get_node_obj(skincluster)
+        
+    # Get a list of the DagPaths of the joints affecting the mesh
+    influences = list_skin_influences(skincluster, fullPath=fullPath)
+    
     # Wrappers to C++ pointers to interact with the Maya API
     influence_count_util = om.MScriptUtil(len(influences))
     influence_count_ptr = influence_count_util.asUintPtr()
     influence_count = influence_count_util.asInt()
 
     weights = om.MDoubleArray()
+    fn_skincluster = omanim.MFnSkinCluster(skincluster)
     fn_skincluster.getWeights(mesh_dagpath, om.MObject(), weights, influence_count_ptr)
     weights = np.fromiter((weights[i: i + influence_count] for i in range(0, weights.length(), influence_count )), 
                           dtype=np.dtype((float, influence_count)))
     
     return weights, influences
-
-
-def strided_indices(indices, stride=1):
-    strided = np.arange(stride)
-    return (strided + indices[:, np.newaxis] * stride).flatten()
 
 
 class Subset(object):
@@ -178,8 +185,7 @@ class Subset(object):
         mesh = get_first_shape(mesh)
         mesh_dagpath = get_node_dagpath(mesh)
         
-        skincluster_obj = get_node_obj(skincluster)
-        weights, influences = get_skin_weights(mesh_dagpath, skincluster_obj)
+        weights, influences = get_skin_weights(mesh_dagpath, skincluster)
 
         for joint_index, joint in enumerate(influences):
             result.append(Subset(joint, weights[:, joint_index].nonzero()[0]))
@@ -225,11 +231,10 @@ def make_outputs_std_filename(name, joint, directory=""):
 
 
 def forget_modules(module_names=("fdda",)):
-    for name in list(sys.modules):
+    for name in list(reversed(sys.modules)):
         for searched_name in module_names:
             if (name == searched_name or 
                 name.startswith(searched_name + ".")):
                 
                 print(f"Forgetting module {name}")
                 del sys.modules[name]
-            

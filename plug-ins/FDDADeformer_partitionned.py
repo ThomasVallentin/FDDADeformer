@@ -1,4 +1,4 @@
-from fdda.common import ProgressBar, ProfilingScope, strided_indices
+from fdda.common import ProgressBar, ProfilingScope, get_all_points
 from fdda.model import SubsetModel, validate_model_description
 
 import maya.OpenMayaMPx as ompx
@@ -25,6 +25,7 @@ class FDDADeformer(ompx.MPxGeometryFilter):
 
     # Attributes declaration
     input_matrix_attr = None
+    parent_matrix_attr = None
     model_file_attr = None
     input_attr = ompx.cvar.MPxGeometryFilter_input
     input_geom_attr = ompx.cvar.MPxGeometryFilter_inputGeom
@@ -67,6 +68,18 @@ class FDDADeformer(ompx.MPxGeometryFilter):
         
         cls.addAttribute(cls.input_matrix_attr)
         cls.attributeAffects(cls.input_matrix_attr, ompx.cvar.MPxGeometryFilter_outputGeom)
+
+        # input parent matrices
+        matrix_attr = om.MFnMatrixAttribute()
+        cls.parent_matrix_attr = matrix_attr.create("parentMatrix", "pm")
+        matrix_attr.setArray(True)
+        matrix_attr.setWritable(True)
+        matrix_attr.setStorable(True)
+        matrix_attr.setConnectable(True)
+        matrix_attr.setHidden(False)
+        
+        cls.addAttribute(cls.parent_matrix_attr)
+        cls.attributeAffects(cls.parent_matrix_attr, ompx.cvar.MPxGeometryFilter_outputGeom)
 
     def setDependentsDirty(self, dirtied_plug, affected_plugs):
         if dirtied_plug.attribute() == self.model_file_attr:
@@ -154,36 +167,49 @@ class FDDADeformer(ompx.MPxGeometryFilter):
         # Input matrix
         input_matrix_handle = datablock.inputArrayValue(self.input_matrix_attr)
         inputs_size = input_matrix_handle.elementCount()
-        
         expected_inputs_size = len(self._subset_models)
-        inputs = np.zeros(expected_inputs_size * 12)
         
+        inputs = np.zeros((expected_inputs_size, 12))
         for i in range(min(inputs_size, expected_inputs_size)):
             input_matrix_handle.jumpToElement(i)
             input_matrix = input_matrix_handle.inputValue().asMatrix()
-            inputs[i * 12: (i + 1) * 12] = [input_matrix(r, c) 
-                                            for r in range(4) for c in range(3)]
+            inputs[i] = np.array([input_matrix(r, c) for c in range(3) for r in range(4)])
         
-        outputs = np.zeros(vertices_count * 3)
+        # Parent matrices
+        parent_matrix_handle = datablock.inputArrayValue(self.parent_matrix_attr)
+        parent_size = parent_matrix_handle.elementCount()
+        
+        parent_matrices = np.zeros((expected_inputs_size, 4, 4))
+        for i in range(min(parent_size, expected_inputs_size)):
+            parent_matrix_handle.jumpToElement(i)
+            parent_matrix = parent_matrix_handle.inputValue().asMatrix()
+            parent_matrices[i] = (np.array([parent_matrix(r, c) 
+                                            for r in range(4) for c in range(4)])
+                                  .reshape((4, 4))
+                                  .transpose())
+        
+        outputs = np.zeros((vertices_count, 3))
         with ProfilingScope("Inference"):
-            for i, model in enumerate(self._subset_models):
-                subset_inputs = inputs[strided_indices(model.subset.affecting_joints, 12)]
-                prediction = model.predict(subset_inputs[np.newaxis, :]).numpy().flatten()
-                outputs[strided_indices(model.subset.vertices, 3)] = prediction
-
+            for i, (model, parent_matrix) in enumerate(zip(self._subset_models, parent_matrices)):
+                subset_inputs = inputs[model.subset.affecting_joints]
+                prediction = model.predict(subset_inputs.reshape((1, -1)))
+                
+                prediction = prediction.numpy().reshape((prediction.shape[1] // 3, 3))
+                prediction = np.insert(prediction, 3, np.zeros(prediction.shape[0]), axis=1)
+                
+                # points_iter = ((point)[:3] for point in prediction)
+                points_iter = (parent_matrix.dot(point)[:3] for point in prediction)
+                outputs[model.subset.vertices] = np.fromiter(points_iter, 
+                                                             count=prediction.shape[0], 
+                                                             dtype=(prediction.dtype, 3))
+        
         with ProfilingScope("Deformation"):
-            positions = om.MPointArray()
-            geom_it.allPositions(positions)
-            positions = np.array([positions[i][axis]
-                                  for i in range(positions.length()) 
-                                  for axis in range(3)])
+            positions = get_all_points(geom_it.allPositions)
             positions += outputs * envelope
 
             m_positions = om.MPointArray()
-            for i in range(0, positions.shape[0], 3):
-                m_positions.append(float(positions[i]),
-                                   float(positions[i + 1]),
-                                   float(positions[i + 2]))
+            for i, position in enumerate(positions):
+                m_positions.append(*position.tolist())
 
             geom_it.setAllPositions(m_positions)
     
