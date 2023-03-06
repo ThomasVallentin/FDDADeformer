@@ -1,6 +1,2 @@
 .vscode
-*__pycache__*
-testing/
-Arm/
-Arm2/
-Arm3/
+scripts/fdda/__pycache__/*

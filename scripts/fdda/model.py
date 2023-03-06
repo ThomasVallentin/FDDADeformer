@@ -69,7 +69,7 @@ class SubsetModel(object):
         subset = Subset.from_description(description)
         return cls(subset, name=name)
         
-    def train(self, inputs, outputs, epochs=200, callbacks=None, **kwargs):
+    def train(self, inputs, outputs, build_model_fn=build_model, epochs=200, callbacks=None, **kwargs):
         # Normalizing the data
         (inputs, 
          self.inputs_mean, 
@@ -78,10 +78,10 @@ class SubsetModel(object):
          self.outputs_mean, 
          self.outputs_std) = normalize_for_training(outputs)
         
-        self.model = build_model(self.subset.main_joint, 
-                                 inputs.shape[1], 
-                                 outputs.shape[1],
-                                 **kwargs)
+        self.model = build_model_fn(self.subset.main_joint, 
+                                    inputs.shape[1], 
+                                    outputs.shape[1],
+                                    **kwargs)
 
         self.history = self.model.fit(inputs, outputs, 
                                       batch_size=64, 
