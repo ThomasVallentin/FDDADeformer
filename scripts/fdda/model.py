@@ -37,11 +37,11 @@ def denormalize(norm_data, mean, std):
 
 # Model
 
-def build_model(name, inputs_count, vertex_count, layer_size=512):
+def build_model(name, inputs_count, vertex_count, layer_size=512, activation="tanh"):
     model = keras.Sequential(name="FDDA_{}".format(name), 
                              layers=[
-        layers.Dense(layer_size, input_dim=inputs_count, activation="tanh"),
-        layers.Dense(layer_size, activation="tanh"), 
+        layers.Dense(layer_size, input_dim=inputs_count, activation=activation),
+        layers.Dense(layer_size, activation=activation), 
         layers.Dense(vertex_count, activation="linear")
     ])
 
@@ -49,23 +49,6 @@ def build_model(name, inputs_count, vertex_count, layer_size=512):
     model.compile(optimizer=adam, loss="mse", metrics=["mae"])
 
     return model
-
-# def build_model(name, inputs_count, vertex_count, layer_size=512):
-#     model = keras.Sequential(name="FDDA_{}".format(name), 
-#                              layers=[
-#         layers.Dense(layer_size, input_dim=inputs_count, activation="tanh",
-#                      kernel_regularizer=regularizers.l2(0.0001)),
-#         layers.Dropout(0.5),
-#         layers.Dense(layer_size, activation="tanh", 
-#                      kernel_regularizer=regularizers.l2(0.0001)),
-#         layers.Dropout(0.5),
-#         layers.Dense(vertex_count, activation="linear")
-#     ])
-
-#     adam = keras.optimizers.Adam(lr=0.001)
-#     model.compile(optimizer=adam, loss="mse", metrics=["mae"])
-
-#     return model
 
 
 class SubsetModel(object):
@@ -86,7 +69,7 @@ class SubsetModel(object):
         subset = Subset.from_description(description)
         return cls(subset, name=name)
         
-    def train(self, inputs, outputs, layer_size=128, epochs=200, callbacks=None):
+    def train(self, inputs, outputs, epochs=200, callbacks=None, **kwargs):
         # Normalizing the data
         (inputs, 
          self.inputs_mean, 
@@ -98,7 +81,7 @@ class SubsetModel(object):
         self.model = build_model(self.subset.main_joint, 
                                  inputs.shape[1], 
                                  outputs.shape[1],
-                                 layer_size=layer_size)
+                                 **kwargs)
 
         self.history = self.model.fit(inputs, outputs, 
                                       batch_size=64, 
